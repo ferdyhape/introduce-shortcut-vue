@@ -30,13 +30,13 @@
             <!-- Navigation Buttons -->
             <div class="flex justify-center gap-4">
                 <!-- Previous -->
-                <button v-if="currentIndex > 0" @click="prevSlide" :disabled="!typingFinished"
+                <button v-if="currentIndex > 0" @click="prevSlide"
                     class="inline-flex items-center justify-center w-12 text-white transition-colors duration-300 bg-gray-600 rounded-full opacity-30 aspect-square hover:bg-gray-700">
                     <i class="fas fa-chevron-left"></i>
                 </button>
 
                 <!-- Next -->
-                <button v-if="currentIndex < slides.length - 1" @click="nextSlide" :disabled="!typingFinished" :class="[
+                <button v-if="currentIndex < slides.length - 1" @click="nextSlide" :class="[
                     'inline-flex items-center justify-center w-12 rounded-full aspect-square transition-colors duration-300',
                     typingFinished
                         ? 'bg-blue-600 text-white hover:bg-blue-700'
@@ -44,7 +44,19 @@
                 ]">
                     <i class="fas fa-chevron-right"></i>
                 </button>
+
+
             </div>
+            <!-- Date Picker & Google Calendar Button -->
+            <!-- <div v-if="currentIndex === slides.length - 1 && typingFinished" class="flex justify-center mt-6"> -->
+            <div v-if="currentIndex === slides.length - 1" class="flex flex-col justify-center gap-2 mt-6 sm:flex-row">
+                <input type="date" v-model="selectedDate" class="p-2 border rounded" />
+                <input type="time" v-model="selectedTime" class="p-2 border rounded" />
+                <button @click="addToGoogleCalendar" class="px-4 py-2 text-white bg-green-600 rounded hover:bg-green-700">
+                    Add to Google Calendar
+                </button>
+            </div>
+
         </div>
     </main>
 </template>
@@ -53,12 +65,16 @@
 import Typed from "typed.js";
 import { ref, onMounted, watch, nextTick } from "vue";
 import { slides } from "../data/slidesData";
+import { calendarConfig } from "../data/calendarConfig.js";
 
 export default {
     setup() {
         const currentIndex = ref(
             parseInt(localStorage.getItem("currentIndex")) || 0
         );
+        const selectedDate = ref('');
+        const selectedTime = ref(calendarConfig.defaultStartHour); // default jam dari config
+
         const typedElements = [];
         let typedInstances = [];
         const typingFinished = ref(false);
@@ -96,6 +112,7 @@ export default {
 
         onMounted(() => {
             runTypedSequential(slides[currentIndex.value].texts);
+            setToday();
         });
 
         watch(currentIndex, (newIndex) => {
@@ -110,6 +127,44 @@ export default {
             if (currentIndex.value > 0) currentIndex.value--;
         };
 
+        const setToday = () => {
+            const today = new Date();
+            const yyyy = today.getFullYear();
+            const mm = String(today.getMonth() + 1).padStart(2, "0");
+            const dd = String(today.getDate()).padStart(2, "0");
+            selectedDate.value = `${yyyy}-${mm}-${dd}`;
+        }
+
+        const addToGoogleCalendar = () => {
+            if (!selectedDate.value || !selectedTime.value) return alert("Please select date and time!");
+
+            const [yyyy, mm, dd] = selectedDate.value.split("-");
+            const [hour, minute] = selectedTime.value.split(":").map(n => parseInt(n, 10));
+
+            // convert to UTC
+            const dateUTC = new Date(Date.UTC(yyyy, mm - 1, dd, hour - calendarConfig.timezoneOffset, minute, 0));
+            const hhUTC = String(dateUTC.getUTCHours()).padStart(2, "0");
+            const mmUTC = String(dateUTC.getUTCMinutes()).padStart(2, "0");
+            const ssUTC = "00";
+
+            const startTime = `${yyyy}${mm}${dd}T${hhUTC}${mmUTC}${ssUTC}Z`;
+
+            // add 1 hour
+            const endDateUTC = new Date(dateUTC.getTime() + 60 * 60 * 1000);
+            const endHH = String(endDateUTC.getUTCHours()).padStart(2, "0");
+            const endMM = String(endDateUTC.getUTCMinutes()).padStart(2, "0");
+            const endSS = "00";
+            const endTime = `${yyyy}${mm}${dd}T${endHH}${endMM}${endSS}Z`;
+
+            const title = encodeURIComponent(calendarConfig.title);
+            const details = encodeURIComponent(calendarConfig.details);
+            const email = encodeURIComponent(calendarConfig.email);
+
+            const url = `https://www.google.com/calendar/render?action=TEMPLATE&text=${title}&dates=${startTime}/${endTime}&details=${details}&add=${email}`;
+            window.open(url, "_blank");
+        };
+
+
         return {
             slides,
             currentIndex,
@@ -117,6 +172,9 @@ export default {
             nextSlide,
             prevSlide,
             typingFinished,
+            selectedDate,
+            selectedTime,
+            addToGoogleCalendar
         };
     },
 };
