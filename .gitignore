@@ -33,3 +33,6 @@ src/data/slidesReal.js
 !/public/assets/images/chase2.jpeg
 !/public/assets/images/chase3.jpeg
 
+.env
+*Prod.js
+
